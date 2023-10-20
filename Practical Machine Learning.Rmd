@@ -1,0 +1,89 @@
+---
+title: "Practical Machine Learning Project"
+author: "Kimberly Yuen"
+date: "2023-10-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+##### Background
+
+In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants where they were asked to perform barbell lifts correctly and incorrectly in 5 different ways. I will predict the manner in which they did the exercise - from creating the model, estimating out of sample error and prediction.
+
+## Data Preparation
+
+Load package and read in training and test data.
+
+```{r}
+library(caret)
+traincsv <- read.csv("pml-training.csv")
+testcsv <- read.csv("pml-testing.csv")
+```
+
+Remove unnecessary variables, for eg variables that are almost always NA.
+
+```{r}
+mostlyNA <- sapply(traincsv, function(x) mean(is.na(x))) > 0.95
+train1 <- traincsv[, mostlyNA==F]
+```
+
+Remove variables with nearly zero variance.
+
+```{r}
+nzv <- nearZeroVar(train1)
+train1 <- train1[, -nzv]
+```
+
+Remove variables not needed for prediction, the first 5 variables (X, user_name, raw_timestamp_part_1, raw_timestamp_part_2\_,cvtd_timestamp).
+
+```{r}
+train1 <- train1[, -(1:5)]
+```
+
+Split training data into sub training set and validation set to be able to do cross validation.
+
+```{r}
+inTrain <- createDataPartition(y=train1$classe, p=0.7, list=F)
+train <- train1[inTrain,]
+valid <- train1[-inTrain,]
+```
+
+## Build Model
+
+I will test Random Forest model using 3-fold cross validation.
+
+```{r}
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)
+fit <- train(classe ~ ., data=train, method="rf", trControl=fitControl)
+```
+
+Final model has 500 trees and tries 27 variables at each split.
+
+```{r}
+fit$finalModel
+```
+
+## Results on Validation Set
+
+Prediction on validation set to see Accuracy and Out of Sample error.
+
+```{r}
+preds <- predict(fit, newdata=valid)
+confusionMatrix(preds,as.factor(valid$classe))
+```
+
+**Accuracy is 99.8%, hence out of sample error is 0.2%.** This is very high accuracy so I will use the Random Forests to predict on the test set.
+
+## Prediction
+
+Make prediction of classe on test set.
+
+```{r}
+preds2 <- predict(fit, newdata=testcsv)
+print(preds2)
+```
